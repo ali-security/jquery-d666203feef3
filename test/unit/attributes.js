@@ -477,7 +477,9 @@ test( "attr(String, Object)", function() {
 test( "attr - extending the boolean attrHandle", function() {
 	expect( 1 );
 	var called = false,
-		_handle = jQuery.expr.attrHandle.checked || $.noop;
+		origAttrHandleHadChecked = "checked" in jQuery.expr.attrHandle,
+		origAttrHandleChecked = jQuery.expr.attrHandle.checked,
+		_handle = origAttrHandleChecked || $.noop;
 	jQuery.expr.attrHandle.checked = function() {
 		called = true;
 		_handle.apply( this, arguments );
@@ -486,6 +488,40 @@ test( "attr - extending the boolean attrHandle", function() {
 	called = false;
 	jQuery( "input" ).attr( "checked" );
 	ok( called, "The boolean attrHandle does not drop custom attrHandles" );
+	if ( origAttrHandleHadChecked ) {
+		jQuery.expr.attrHandle.checked = origAttrHandleChecked;
+	} else {
+		delete jQuery.expr.attrHandle.checked;
+	}
+});
+
+test( "non-lowercase boolean attribute getters should not crash", function() {
+	expect( 6 );
+
+	var elem = jQuery( "<input checked required autofocus type='checkbox'>" ),
+		// Two elements so .filter() goes through Sizzle's ATTR filter (Sizzle.attr)
+		// with the raw, non-lowercased attribute name instead of native matchesSelector
+		elems = jQuery( "<input checked required autofocus type='checkbox'><input type='checkbox'>" );
+
+	jQuery.each( {
+		checked: "Checked",
+		required: "requiRed",
+		autofocus: "AUTOFOCUS"
+	}, function( lowercased, original ) {
+		try {
+			strictEqual( elem.attr( original ), lowercased,
+				"The '" + original + "' attribute getter should return the lowercased name" );
+		} catch ( e ) {
+			ok( false, "The '" + original + "' attribute getter threw" );
+		}
+
+		try {
+			strictEqual( elems.filter( "[" + original + "]" ).length, 1,
+				"The '[" + original + "]' attribute selector should match only the element having it" );
+		} catch ( e ) {
+			ok( false, "The '[" + original + "]' attribute selector threw" );
+		}
+	});
 });
 
 test( "attr(String, Object) - Loaded via XML document", function() {
